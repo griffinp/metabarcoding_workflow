@@ -6,9 +6,11 @@
 
 library(rentrez)
 library(ape)
+library(taxize)
+library(metabarcodedb)
 
 
-# They are in the format:
+# Mel's sequences are in the format:
 # >Paracalliopiidae(MRD16Amp1)
 # CACCCTTTATTTTATTTTAGCCGCATGAGCTAGTATAGTAGGCACTTCTCTAAGAGTTATTATCCGAACAGAATTAAGGGCCCCAGGCAACTTAATCGGAGACGATCAGATTTACAATACCGTAGTAACAGCTCACGCATTCGTTATAATTTTTTTTTTAGTCATACCAGCCATAATTGGTGGTTTTGGTAATTGACTAGTCCCTCTTATACTAGGAAGACCAGATATAGCTTTCCCCCGAATAAACAACATAAGATTCTGACTTTTACCCCCTTCTCTGACCCTATTACTAATAAGAGGCCTAGTAGAAAGAGGGGTGGGCACAGGCTGAACCGTCTACCCGCCTCTTGCTGGCAACATCGCCCATAGTGGAGCCTCAGTAGATCTGGCTATTTTTTCTCTTCATTTAGCAGGAGCCTCCTCTATTTTAGGCGCTATCAATTTTATCTCCACAGTAATTAACATGCGGGCCCCGGCCATGCCAATAGACCAAATCCCATTATTTGTATGGTCTGTATTTATCACAGCCATCTTACTATTATTATCTTTACCTGTTTTAGCCGGTGCAATTACCATACTACTTACAGACCGTAATTTAAACACATCTTTTTTTGACCCATCTGGAGGAGGGGACCCAATTTTATACCAGCATTTATTT
 # >Physa_acuta(3aPhy1)
@@ -16,9 +18,57 @@ library(ape)
 # >Ablabesmyia_sp1(S04Tp11)
 # AACTTTATATTTTATTTTTGGGGCCTGAGCTGGAATAGTGGGTACTTCCCTTAGTATCCTTATTCGAACAGAATTAGGACACCCAGGAGCTTTAATCGGAGACGATCAAATTTATAACGTAATCGTAACTGCTCATGCATTTGTTATAATTTTTTTTATAGTAATACCTATTTTAATTGGTGGATTTGGAAATTGACTAGTACCCCTTATACTAGGTGCCCCAGATATAGCATTTCCACGAATAAATAATATAAGATTTTGACTACTTCCCCCCTCATTAACTTTATTGTTATCTAGTTCTATTGTAGAAAATGGAGCAGGAACTGGTTGAACCGTTTACCCCCCTTTAGCCTCAGGTATTGCCCATGCCGGAGCTTCTGTAGATTTAGCTATTTTCTCTCTTCATTTAGCAGGAATCTCTTCAATTTTAGGAGCTGTAAATTTTATTACTACAGTTATTAATATACGATCTACAGGAATTACATTAGACCGAATACCCTTATTTGTTTGGTCTGTTGTAATTACTGCTATTTTATTGCTTTTATCCCTACCAGTTTTAGCTGGGGCTATTACTATATTATTGACAGATCGAAATTTAAATACTTCTTTCTTTGACCCCGCAGGAGGGGGAGACCCCATTTTATACCAGCACTTATTT
 
+#######################################
+# Importing Mel's sequences
+#######################################
+
+
 output_dir <- "~/Documents/Research_Projects/metabarcoding/metaR/ref_files/private_ref_sequences"
 
-private_seq <- ape::read.dna(file="~/Documents/Research_Projects/metabarcoding/mel_data/Private_DNA_barcodes_11_16.fasta", format = "fasta")
+private_seq_1 <- ape::read.dna(file="~/Documents/Research_Projects/metabarcoding/mel_data/Private_DNA_barcodes_11_16.fasta", format = "fasta")
+original_names_1 <- names(private_seq_1)
+
+# Make some name edits as per instructions in the document 'DNAbarcades1234_adjustments.txt'
+
+name_changes_1 <- data.frame(current_names=c("Ceratopogonidae_EPAsp15(cer15103yar3421)", "Ceratopogonidae_EPAsp15(cer15103yar3582)",
+                                           "Ceratopogonidae_EPAsp17(cer17s1bdg1)", "Ceratopogonidae_EPAsp17(cer17s1dan1)",
+                                           "Ceratopogonidae_EPAsp17(cer17s1dpw1)", "Ceratopogonidae_EPAsp17(cer17s1ler0150)",
+                                           "Ceratopogonidae_EPAsp17(cer17s1n7d1)", "Ceratopogonidae_EPAsp3(cer3s1cdc003)",
+                                           "Ceratopogonidae_EPAsp48(cer48s1ple1)", "Ceratopogonidae_EPAsp50(cer50pleghd1)",
+                                           "Ceratopogonidae_EPAsp50(cer50s1bdg1)", "Dinotoperia_thwaitesi(SC15ASGrip1)",
+                                           "Hellyethira_simplex(NSHydp1)", "Nousia_AV2(2aLept)", "Telephlebiidae_sp1(MAR2_Tele1)"),
+                           replacement_names=c("Ceratopogonidae_sp15(cer15103yar3421)", "Ceratopogonidae_sp5(cer15103yar3582)", 
+                                               "Ceratopogonidae_sp4(cer17s1bdg1)", "Ceratopogonidae_sp2(cer17s1dan1)", 
+                                               "Ceratopogonidae_sp9(cer17s1dpw1)", "Ceratopogonidae_sp3(cer17s1ler0150)", 
+                                               "Ceratopogonidae_sp2(cer17s1n7d1)", "Ceratopogonidae_sp16(cer3s1cdc003)", 
+                                               "Ceratopogonidae_sp8(cer48s1ple1)", "Ceratopogonidae_sp16(cer50pleghd1)", 
+                                               "Ceratopogonidae_sp10(cer50s1bdg1)", "Plecoptera_sp1(SC15ASGrip1)", 
+                                               "Hellyethira_spACC4813 (NSHydp1)", "Nousia_spAAX5671 (2aLept)", 
+                                               "Austroaeschna_pinheyi(MAR2_Tele1)"), stringsAsFactors=FALSE)
+
+for(i in 1:nrow(name_changes_1)){
+  current_name <- name_changes_1[i, "current_names"]
+  replacement_name <- name_changes_1[i, "replacement_names"]
+  names(private_seq_1)[which(names(private_seq_1)==current_name)] <- replacement_name
+  #print(c(current_name, replacement_name))
+}
+
+private_seq_2 <- ape::read.dna(file="~/Dropbox/mel_metabarcoding/DNAbarcodes1234_282\ Sequences.fasta", format = "fasta")
+
+private_seq <- c(private_seq_1, private_seq_2)
+
+# look for duplicate sequence names and remove duplicates
+
+duplicates_to_remove <- which(duplicated(names(private_seq)))
+private_seq <- private_seq[-duplicates_to_remove]
+
+#######################################
+# making some name edits on the raw   #
+# file as per Mel's suggestions, and  #
+# extracting the lowest possible      #
+# taxonomic level                     #
+# for use in taxonomy searching       #
+#######################################
 
 private_seq_taxon_name <- str_split(names(private_seq), pattern="[()]", simplify=TRUE)[,1]
 private_seq_codes <- str_split(names(private_seq), pattern="[()]", simplify=TRUE)[,2]
@@ -26,7 +76,8 @@ private_seq_codes <- str_split(names(private_seq), pattern="[()]", simplify=TRUE
 private_seq_taxon_name_split <- str_split(private_seq_taxon_name, pattern="_", simplify=TRUE)
 private_seq_taxon_name_split <- apply(private_seq_taxon_name_split, MARGIN = 2, FUN=str_trim)
 
-# Make corrections based on Mel's input in the document 'no_taxonomy_hits_list_170227_corrections.txt'
+# Make some spelling corrections based on Mel's input in the document 
+# 'no_taxonomy_hits_list_170227_corrections.txt' and issues identified downstream
 
 private_seq_taxon_name_split[8,1] <- "Ablabesmyia"
 private_seq_taxon_name_split[10,1] <- "Botryocladius"
@@ -50,7 +101,7 @@ private_seq_taxon_name_split[596:603,2] <- "spE"
 private_seq_taxon_name_split[685,2] <- "villosimanus"
 private_seq_taxon_name_split[732,2] <- "fuscithorax"
 private_seq_taxon_name_split[786:787,1] <- "Cloeon"
-private_seq_taxon_name_split[c(788:790, 848:849),1] <- "Paracalliopidae"
+private_seq_taxon_name_split[c(788:790, 848:849, 924:927),1] <- "Paracalliopidae"
 private_seq_taxon_name_split[c(800, 803),1] <- "Austrochiltonia"
 private_seq_taxon_name_split[821:824,1] <- "Dinotoperla"
 private_seq_taxon_name_split[821,2] <- "thwaitesi"
@@ -59,6 +110,16 @@ private_seq_taxon_name_split[841:842,1] <- "Necterosoma"
 private_seq_taxon_name_split[843,2] <- ""
 private_seq_taxon_name_split[861:862,1] <- "Tamasia"
 private_seq_taxon_name_split[841:842,2] <- "penicillatum"
+private_seq_taxon_name_split[867,1] <- "Veliidae"
+private_seq_taxon_name_split[885,1] <- "Simulium"
+private_seq_taxon_name_split[886:895,1] <- "Scirtidae"
+private_seq_taxon_name_split[896,1] <- "Scirtes"
+private_seq_taxon_name_split[954,1] <- "Notalina"
+private_seq_taxon_name_split[957,1] <- "Tubificidae"
+private_seq_taxon_name_split[981,1] <- "Hydrachnidae"
+private_seq_taxon_name_split[995,1] <- "Eusiridae"
+private_seq_taxon_name_split[1037,1] <- "Ceratopogonidae"
+
 
 new_spp <- grep(private_seq_taxon_name_split[,2], pattern="sp[0-9A-Z]")
 more_new_spp <- grep(private_seq_taxon_name_split[,2], pattern="sp$")
@@ -78,12 +139,10 @@ for(i in 1:nrow(private_seq_taxon_name_split)){
 }
 
 
-
-
-
-
-
-
+########################################################
+# Use parsed taxon name to search for taxonomic ID in  #
+# NCBI taxonomy database                               #
+########################################################
 
 no_taxonomy_hits <- c()
 taxon_id_info <- data.frame(taxon_id=rep(NA, times=length(private_seq_taxon_search_string)),
@@ -91,7 +150,7 @@ taxon_id_info <- data.frame(taxon_id=rep(NA, times=length(private_seq_taxon_sear
 taxonomy_info <- list()
 for(i in 1:length(private_seq_taxon_search_string)){
   tax_test <- entrez_search(db="taxonomy", term=private_seq_taxon_search_string[i])
-  print(paste("Getting taxon id for", private_seq_taxon_search_string[i], ": record", i, "of", length(private_seq_taxon_search_string)))
+  message(paste("Getting taxon id for", private_seq_taxon_search_string[i], ": record", i, "of", length(private_seq_taxon_search_string)))
   if(length(tax_test$ids)>0){
     taxon_id_info$taxon_id[i] <- tax_test$ids
   } else{
@@ -113,11 +172,18 @@ for(i in 1:length(private_seq_taxon_search_string)){
   }
 }
 
-library(taxize)
+
 obtained_ids <- taxon_id_info$taxon_id[!is.na(taxon_id_info$taxon_id)]
+
+##############################################
+# Obtain full classification info            #
+# from NCBI Taxonomy database                #
+# for all taxa for which a TaxonID was found #
+##############################################
 
 classifications <- list()
 for(i in 1:nrow(taxon_id_info)){
+  message(paste("Getting full classification for", private_seq_taxon_search_string[i], ": record", i, "of", nrow(taxon_id_info)))
   if(is.na(taxon_id_info$taxon_id[i])==FALSE){
     classifications[[i]] <- classification(taxon_id_info$taxon_id[i], db="ncbi")
   } else{
@@ -126,25 +192,11 @@ for(i in 1:nrow(taxon_id_info)){
 }
 
 # Manually make classifications for the taxa in no_taxonomy_hits:
-# Telephlebiidae, Byrrocryptus and Megacentron erebeum
+# Byrrocryptus and Megacentron erebeum
 # check vector locations for these...
 no_taxonomy_hits
 private_seq_taxon_search_string[which(is.na(taxon_id_info$taxon_id))]
 which(is.na(taxon_id_info$taxon_id))
-
-classifications[[784]] <- list(data.frame(name=c("cellular organisms",
-                                                 "Eukaryota","Opisthokonta", "Metazoa",
-                                                 "Eumetazoa", "Bilateria",
-                                                 "Protostomia", "Ecdysozoa",
-                                                 "Panarthropoda", "Arthropoda",
-                                                 "Insecta", "Odonata", "Anisoptera",
-                                                 "Aeshnoidea", "Telephlebiidae", "", ""),
-                                          rank=c("no rank", "superkingdom", "no rank", 
-                                                 "kingdom", "no rank", "no rank", "no rank",
-                                                 "no rank", "no rank", "phylum", "class", "order",
-                                                 "suborder", "superfamily", "family", "genus", "species"),
-                                          id=as.character(c(131567, 2759,33154,33208,6072,33213,
-                                                            33317,1206794,88770,6656,50557,6961,6962,70898,NA,NA,NA)), stringsAsFactors=FALSE))
 
 classifications[[804]] <- list(data.frame(name=c("cellular organisms",
                                                  "Eukaryota","Opisthokonta", "Metazoa",
@@ -161,6 +213,14 @@ classifications[[804]] <- list(data.frame(name=c("cellular organisms",
                                                             33317,1206794,88770,6656,50557,7041,41084,107942,186984,NA,NA)), stringsAsFactors=FALSE))
 classifications[[805]] <- classifications[[804]]
 classifications[[806]] <- classifications[[804]]
+classifications[[1038]] <- classifications[[804]]
+classifications[[1039]] <- classifications[[804]]
+classifications[[1040]] <- classifications[[804]]
+classifications[[1041]] <- classifications[[804]]
+classifications[[1042]] <- classifications[[804]]
+classifications[[1043]] <- classifications[[804]]
+classifications[[1044]] <- classifications[[804]]
+classifications[[1045]] <- classifications[[804]]
 classifications[[837]] <- list(data.frame(name=c("cellular organisms",
                                                  "Eukaryota","Opisthokonta", "Metazoa",
                                                  "Eumetazoa", "Bilateria",
@@ -196,7 +256,7 @@ for(i in species_level){
 
 
 add_identifier_line <- function(classif, identifier_value){
-  # nb this is now a packge function
+  # nb this is now a package function
   new_classif <- rbind(classif, c(name=identifier_value, rank="identifier", id=""))
   return(new_classif)
 }
