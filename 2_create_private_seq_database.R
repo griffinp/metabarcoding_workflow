@@ -9,6 +9,22 @@ library(ape)
 library(taxize)
 library(metabarcodedb)
 
+#############
+# FUNCTIONS #
+#############
+
+replace_sp_value <- function(classif, new_sp_value){
+  classif[classif$rank=="species","name"] <- new_sp_value
+  return(classif)
+}
+
+# add_identifier_line <- function(classif, identifier_value){
+#   # nb this is now a package function
+#   new_classif <- rbind(classif, c(name=identifier_value, rank="identifier", id=""))
+#   return(new_classif)
+# }
+
+#########################
 
 # Mel's sequences are in the format:
 # >Paracalliopiidae(MRD16Amp1)
@@ -235,42 +251,32 @@ classifications[[837]] <- list(data.frame(name=c("cellular organisms",
                                           id=as.character(c(131567,2759,33154,33208,6072,33213,
                                                             33317,1206794,88770,6656,50557,7147,43786,41828,7149,NA,NA)), stringsAsFactors=FALSE))
 
-
+############################################
+# Edit classifications with functions from #
+# metabarcodedb package to retain only     #
+# desired taxonomic levels                 #
+############################################
 
 library(metabarcodedb)
 classifs <- lapply(classifications, "[[", 1)
 reduced_classifications <- lapply(classifs, reduce_taxonomic_levels, taxonomic_levels=c("kingdom", "phylum", "class", "order",
                                                                                         "family", "genus", "species"))
 # replace species value with species string from earlier, but only for species-level IDs
-
-replace_sp_value <- function(classif, new_sp_value){
-  classif[classif$rank=="species","name"] <- new_sp_value
-  return(classif)
-}
-
 for(i in species_level){
   reduced_classifications[[i]] <- replace_sp_value(reduced_classifications[[i]], new_sp_value=corrected_taxon_name[i])
 }
 
 # add identifier code as key-value pair
 
-
-add_identifier_line <- function(classif, identifier_value){
-  # nb this is now a package function
-  new_classif <- rbind(classif, c(name=identifier_value, rank="identifier", id=""))
-  return(new_classif)
-}
-
-
 for(i in 1:length(reduced_classifications)){
-  reduced_classifications[[i]] <- add_identifier_line(reduced_classifications[[i]],
-                                                      id=paste("mc", private_seq_codes[i], sep=":"))
+  reduced_classifications[[i]] <- add_identifier_line_to_classification(classif=reduced_classifications[[i]],
+                                                      identifier_value=paste("mc", private_seq_codes[i], sep=":"))
 }
 
 formatted_classifications <- lapply(reduced_classifications, format_taxonomic_levels)
 new_fasta <- private_seq
 names(new_fasta) <- formatted_classifications
-dada2_fasta_file_name <- paste(output_dir, "private_dna_seq_dada2.fasta", sep="/")
+dada2_fasta_file_name <- paste(output_dir, "private_dna_seq_2017-07-20_dada2.fasta", sep="/")
 ape::write.dna(new_fasta, file = dada2_fasta_file_name, format = "fasta", nbcol=1, blocksep=0, colw=1e06)
 
 # replace any blank lines...

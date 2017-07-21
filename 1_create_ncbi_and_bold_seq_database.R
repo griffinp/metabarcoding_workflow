@@ -1,3 +1,4 @@
+library(metabarcodedb)
 library(stringr)
 
 gene <- "COI"
