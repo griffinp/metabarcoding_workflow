@@ -57,10 +57,10 @@ for(taxon in taxon_list2){
 # Trying BOLD #
 ###############
 
-output_dir <- "~/Documents/Research_Projects/metabarcoding/metaR/ref_files/taxon_list1"
+output_dir <- "~/Documents/Research_Projects/metabarcoding/metaR/ref_files/taxon_list2"
 
-for(i in 1:length(taxon_list1)){
-  taxon <- taxon_list1[i]
+for(i in 1:length(taxon_list2)){
+  taxon <- taxon_list2[i]
   marker <- "COI-5P|COI-3P"
   mapping_file_name <- make_mapping_name(taxon=taxon, directory=output_dir)
   dada2_file_name <- paste(output_dir, "/", taxon, "_extra_bold_seq_dada2.fasta", sep="")
