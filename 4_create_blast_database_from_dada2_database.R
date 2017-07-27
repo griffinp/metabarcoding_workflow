@@ -21,7 +21,7 @@ if(!file.exists(dada2_database_path) & !file.exists(dada2_database_path_gz)){
   refdb <- readFasta(dada2_database_path)
   message(paste("Making reference BLAST database", blast_database_name))
   ref_blastdb <- blastDbase16S(name=blast_database_name, sequence=refdb$Sequence, taxon=refdb$Header)
-  saveRDS(ref_blastdb, file=paste(database_directory, blast_database_name, ".rds", sep=""))
+  saveRDS(ref_blastdb, file=paste(database_directory, "/", blast_database_name, ".rds", sep=""))
   system(command=paste("mv ", blast_database_name, "* ", database_directory, sep=""))
   message(paste("Finished making", blast_database_name))
 }
