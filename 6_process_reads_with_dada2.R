@@ -1,3 +1,13 @@
+#install.packages("RCurl", lib="/vlsci/VR0267/pgriffin/R/x86_64-unknown-linux-gnu-library/3.3.2")
+
+#source("https://bioconductor.org/biocLite.R")
+
+#biocLite("RCurl", lib="/vlsci/VR0267/pgriffin/R/x86_64-unknown-linux-gnu-library/3.3.2")
+#biocLite("dada2",
+#         lib.loc="/vlsci/VR0267/pgriffin/R/x86_64-unknown-linux-gnu-library/3.3.2",
+#         lib="/vlsci/VR0267/pgriffin/R/x86_64-unknown-linux-gnu-library/3.3.2")
+
+
 library(dada2)
 
 input_path <- "/vlsci/VR0267/pgriffin/hsm/mel_metabarcoding_run2/trimmed"
@@ -19,7 +29,7 @@ seq_lengths_to_keep <- data.frame(Pair_name=adapter_pairs, min_length=rep(100, t
 trimmed_paths <- c()
 for(i in adapter_pairs){
   trimmed_path <- paste(input_path, i, sep="/")
-  dir.create(filt_path)
+  dir.create(trimmed_path)
   system(command=paste("mv ", input_path, "/*", i, "_step5* ", trimmed_path, sep=""))
   trimmed_paths <- c(trimmed_paths, trimmed_path)
 }
@@ -118,7 +128,8 @@ if(file.exists(merger_path) & file.exists(seqtab_path)){
 }
 
 seqlength_table <- table(nchar(getSequences(seqtab)))
-write.table(seqlength_table, file=paste(results_path, "/", primer_pair, "seqlength_table.txt", sep=""))
+write.table(seqlength_table, quote=FALSE, row.names=FALSE,
+            file=paste(results_path, "/", primer_pair, "_seqlength_table.txt", sep=""))
 
 ##############################################
 # Exclude very-short or very-long sequences; #
@@ -128,8 +139,8 @@ write.table(seqlength_table, file=paste(results_path, "/", primer_pair, "seqleng
 # the top of this script...                  #
 ##############################################
 
-min_length <- seq_lengths_to_keep[Pair_name==primer_pair, "min_length"]
-max_length <- seq_lengths_to_keep[Pair_name==primer_pair, "max_length"]
+min_length <- seq_lengths_to_keep[which(seq_lengths_to_keep$Pair_name==primer_pair), "min_length"]
+max_length <- seq_lengths_to_keep[which(seq_lengths_to_keep$Pair_name==primer_pair), "max_length"]
 seqtab2 <- seqtab[,nchar(colnames(seqtab)) %in% seq(min_length, max_length)]
 
 ###################################

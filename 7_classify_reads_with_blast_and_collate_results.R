@@ -1,5 +1,3 @@
-# Testing the DADA2 pipeline on A_E amplicons
-
 #install.packages("RCurl", lib="/vlsci/VR0267/pgriffin/R/x86_64-unknown-linux-gnu-library/3.3.2")
 
 #source("https://bioconductor.org/biocLite.R")
@@ -10,13 +8,16 @@
 #         lib="/vlsci/VR0267/pgriffin/R/x86_64-unknown-linux-gnu-library/3.3.2")
 
 library(dada2)
-packageVersion("dada2")
 library(microclass)
 
-##### Custom function for classifying sequences using BLAST
-##### adapted from microclass::blastClassify16S to return more than the top hit
+#############
+# FUNCTIONS #
+#############
 
 blastClassify <- function (sequence, bdb) 
+  # Custom function for classifying sequences using BLAST
+  # adapted from microclass::blastClassify16S to return more than
+  # just the top hit
 {
   n <- length(sequence)
   tags <- paste("Query", 1:n, sep = "_")
@@ -45,9 +46,13 @@ blastClassify <- function (sequence, bdb)
   #                   stringsAsFactors = F))
 }
 
-#path <- "~/Documents/metabarcoding/test_run1_data"
+##################
+# SETTING UP     #
+##################
+
+
 path <- "/vlsci/VR0267/pgriffin/hsm/mel_metabarcoding_run1/trimmed/A_E"
-filt_path <- "/vlsci/VR0267/pgriffin/hsm/mel_metabarcoding_run1/trimmed/A_E/filtered"
+filt_path <- "/vlsci/VR0267/pgriffin/hsm/mel_metabarcoding_run2/trimmed/A_E/filtered"
 
 ref_blastdb <- readRDS("/vlsci/VR0267/pgriffin/hsm/mel_metabarcoding_run1/ref_db/dada2_blast_ref_db.rds")
 
