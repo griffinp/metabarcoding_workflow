@@ -15,9 +15,14 @@ results_path <- "/vlsci/VR0267/pgriffin/hsm/mel_metabarcoding_run2/results"
 adapter_table <- read.csv("/vlsci/VR0267/pgriffin/hsm/mel_metabarcoding_run2/scripts/primer_sequences_for_R_script_run2.csv", sep=",", 
                           header=TRUE, stringsAsFactors=FALSE)
 adapter_pairs <- adapter_table$Pair_name
-seq_lengths_to_keep <- data.frame(Pair_name=adapter_pairs, min_length=c(220, rep(100, times=(length(adapter_pairs)-1))), 
-                                  max_length=c(322, rep(600, times=(length(adapter_pairs)-1))))
-### add code to adjust seq_lengths_to_keep for specific primer pairs here if needed ###
+# an example default value for sequence lengths to retain
+#seq_lengths_to_keep <- data.frame(Pair_name=adapter_pairs, min_length=rep(100, times=nrow(adapter_table)), 
+#                                  max_length=rep(600, times=nrow(adapter_table)))
+seq_lengths_to_keep <- data.frame(Pair_name=adapter_pairs, min_length=c(220, 100, 244), 
+                                  max_length=c(322, 600, 249))
+### added code to adjust seq_lengths_to_keep for specific primer pairs,
+### based on the expected sequence length and on the distribution of observed lengths
+### after trimming - which can be seen in the files ***.seqlength_table.txt 
 
 ###############################
 # Move cutadapt-trimmed files #
@@ -41,7 +46,7 @@ for(i in adapter_pairs){
 # dada2::filterAndTrim             #
 ####################################
 
-for(j in length(adapter_pairs)){
+for(j in 1:length(adapter_pairs)){
 
   primer_pair <- adapter_pairs[j]
   trimmed_path <- trimmed_paths[j]

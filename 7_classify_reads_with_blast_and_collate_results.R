@@ -1,71 +1,27 @@
-#install.packages("RCurl", lib="/vlsci/VR0267/pgriffin/R/x86_64-unknown-linux-gnu-library/3.3.2")
-
-#source("https://bioconductor.org/biocLite.R")
-
-#biocLite("RCurl", lib="/vlsci/VR0267/pgriffin/R/x86_64-unknown-linux-gnu-library/3.3.2")
-#biocLite("dada2",
-#         lib.loc="/vlsci/VR0267/pgriffin/R/x86_64-unknown-linux-gnu-library/3.3.2",
-#         lib="/vlsci/VR0267/pgriffin/R/x86_64-unknown-linux-gnu-library/3.3.2")
-
-library(dada2)
 library(microclass)
 
 #############
 # FUNCTIONS #
 #############
 
-blastClassify <- function (sequence, bdb) 
+blastClassify <- function (sequence, bdb, bdb_path, output_file) 
   # Custom function for classifying sequences using BLAST
   # adapted from microclass::blastClassify16S to return more than
   # just the top hit
 {
+  setwd(bdb_path)
   n <- length(sequence)
   tags <- paste("Query", 1:n, sep = "_")
   fdta <- data.frame(Header = tags, Sequence = sequence, stringsAsFactors = F)
   writeFasta(fdta, out.file = "query.fasta")
   cmd <- paste("blastn -task megablast -query query.fasta -db ", bdb, " -num_alignments 400", 
-               " -out bres.txt -outfmt \"6 qseqid qlen sseqid length pident bitscore\"", 
+               " -out ", output_file, " -outfmt \"6 qseqid qlen sseqid length pident bitscore\"", 
                sep = "")
   system(cmd)
-  # btab <- read.table("bres.txt", sep = "\t", header = F, stringsAsFactors = F)
-  # file.remove("query.fasta")
-  # btab <- btab[order(btab[, 5], decreasing = T), ]
-  # btab <- btab[which(!duplicated(btab[, 1])), ]
-  # tax.hat <- gsub("_[0-9]+$", "", btab[, 3])
-  # pident_max <- max(btab[, 5])
-  # pident_max_subset <- btab[,which(btab[,5]>(pident_max-0.001))]
-  # pident_max_sseqids <- pident_max_subset[seq(3, ncol(pident_max_subset), by=6),]
-  #idty <- (btab[, 5]/100) * btab[, 4]/btab[, 2] + pmax(0, btab[, 
-  #                                                             2] - btab[, 4]) * 0.25
-  # taxon.hat <- rep("unclassified", n)
-  # identity <- rep(0, n)
-  # idx <- match(btab[, 1], tags)
-  # taxon.hat[idx] <- tax.hat
-  # #identity[idx] <- idty
-  # return(data.frame(Taxon = taxon.hat, Identity = identity, 
-  #                   stringsAsFactors = F))
+  if(file.exists("query.fasta")){
+    file.remove("query.fasta")
+  }
 }
-
-##################
-# SETTING UP     #
-##################
-
-
-path <- "/vlsci/VR0267/pgriffin/hsm/mel_metabarcoding_run1/trimmed/A_E"
-filt_path <- "/vlsci/VR0267/pgriffin/hsm/mel_metabarcoding_run2/trimmed/A_E/filtered"
-
-ref_blastdb <- readRDS("/vlsci/VR0267/pgriffin/hsm/mel_metabarcoding_run1/ref_db/dada2_blast_ref_db.rds")
-
-blast_classif <- blastClassify(sequence=colnames(seqtab.nochim), bdb=ref_blastdb)
-
-saveRDS(blast_classif, "/vlsci/VR0267/pgriffin/hsm/mel_metabarcoding_run1/results/A_E_blast_classification_custom.rds")
-
-
-#classif <- readRDS("A_E_blast_classification.rds")
-
-classif <- read.csv("bres.txt", sep="\t", header=FALSE, stringsAsFactors = FALSE)
-
-classif$seqnumber <- as.numeric(unlist(lapply(strsplit(classif[,1], split="_"), "[[", 2)))
 
 extract_top_pident_hits <- function(blast_result){
   pident_max <- max(blast_result[,5])
@@ -93,7 +49,7 @@ condense_taxa <- function(taxa_vector){
       }
     } else{
       number_taxon_levels <- apply(taxa_table, MARGIN = 2, FUN=function(x){length(levels(as.factor(x)))})
-      lowest_nonvarying_column <- which(number_taxon_levels>1)[1]-1
+      lowest_nonvarying_column <- tail(which(number_taxon_levels>1), 1)-1
       nonvarying_levels <- paste(taxa_table[1,1:lowest_nonvarying_column], collapse=";")
       finest_level <- taxa_table[1,lowest_nonvarying_column]
       if(finest_level%in%c("", "_")){
@@ -115,45 +71,7 @@ condense_taxa <- function(taxa_vector){
   return(c(finest_level, output_levels))
 }
 
-info_per_seq <- data.frame(query_seq_number=numeric(), top_pident=numeric(), lowest_unique_match=character(), matching_taxa=character(),
-                           stringsAsFactors=FALSE)
-for(i in 1:max(classif$seqnumber)){
-  classif_subset <- classif[classif$seqnumber==i,]
-  if(nrow(classif_subset)==0){
-    info_per_seq[i,] <- c(query_seq_number=i, top_pident=0, lowest_unique_match="unidentified", matching_taxa="unidentified")
-  } else{
-    top_hits <- extract_top_pident_hits(classif_subset)
-    message(paste(nrow(top_hits), "hits with identity score of", top_hits[1,3], "for sequence #", i))
-    top_taxa <- condense_taxa(top_hits[,2])
-    info_per_seq[i,] <- c(query_seq_number=i, top_pident=top_hits[1,3], 
-                          lowest_unique_match=top_taxa[1], matching_taxa=top_taxa[2])
-  }
-}
-
-info_per_seq$sequence <- colnames(seqtab.nochim)
-write.csv(info_per_seq, file="A_E_blast_summary.csv", row.names = FALSE, quote=FALSE)
-
-seqtab_assigned <- seqtab.nochim
-colnames(seqtab_assigned) <- info_per_seq$lowest_unique_match
-seqtab_assigned <- seqtab_assigned[,order(info_per_seq$lowest_unique_match)]
-pident_sorted <- info_per_seq[order(info_per_seq$lowest_unique_match), "top_pident"]
-seq_sorted <- colnames(seqtab.nochim)[order(info_per_seq$lowest_unique_match)]
-matching_taxa_sorted <- info_per_seq[order(info_per_seq$lowest_unique_match), "matching_taxa"]
-
-seqtab_out <- rbind(seqtab_assigned, pident_sorted, seq_sorted, matching_taxa_sorted)
-row.names(seqtab_out)[((nrow(seqtab_out)-2):nrow(seqtab_out))] <- c("top_pident", "sequence", "all_top_match_taxa")
-
-write.csv(seqtab_out, file="Seq_abundance_A_E_with_lowest_unique_assignment.csv", 
-          quote=FALSE)
-
-
-
-
-
-# Collating at species level (this ignores the percent identity values though)
-
 collate_at_species_level <- function(info_per_seq, seqtab_assigned){
-  #if(exists("species_collated")){rm(species_collated)}
   unique_taxa_matches <- unique(info_per_seq$lowest_unique_match)
   for(i in 1:length(unique_taxa_matches)){
     unique_taxon <- unique_taxa_matches[i]
@@ -186,58 +104,134 @@ collate_at_species_level <- function(info_per_seq, seqtab_assigned){
       }
     }
   }
-return(species_collated)
+  return(species_collated)
 }
 
+##################
+# SETTING UP     #
+##################
 
-matches_above_97.5 <- as.numeric(info_per_seq$top_pident)>97.499
-matches_below_97.5 <- as.numeric(info_per_seq$top_pident)<=97.499
+input_path <- "/vlsci/VR0267/pgriffin/hsm/mel_metabarcoding_run2/trimmed"
+results_path <- "/vlsci/VR0267/pgriffin/hsm/mel_metabarcoding_run2/results"
+ref_db_path <- "/vlsci/VR0267/pgriffin/hsm/mel_metabarcoding_run2/ref_db"
+adapter_table <- read.csv("/vlsci/VR0267/pgriffin/hsm/mel_metabarcoding_run2/scripts/primer_sequences_for_R_script_run2.csv", sep=",", 
+                          header=TRUE, stringsAsFactors=FALSE)
+adapter_pairs <- adapter_table$Pair_name
+ref_blastdb <- readRDS("/vlsci/VR0267/pgriffin/hsm/mel_metabarcoding_run2/ref_db/custom_blast_db_2017-07-25.rds")
 
-species_collated <- collate_at_species_level(info_per_seq=info_per_seq, seqtab_assigned=seqtab_assigned)
+#################################
+# Loop through all primer pairs #
+#################################
 
-species_collated <- species_collated[,order(colnames(species_collated))]
-write.csv(species_collated, file="Seq_abundance_A_E_lowest_unique_assignment_grouped_by_species.csv", quote=FALSE)
-
-presabs <- as.matrix((species_collated > 0) + 0)
-rowSums(presabs)
-
-pdf("Species_collated_presence_heatmap.pdf", width=7, height=14)
-image(presabs, col=c("white", "red"), xaxt = "n", yaxt="n")
-axis(side = 1, labels = rownames(presabs),
-     at = seq(0, by = 1/(nrow(presabs)-1), length.out = nrow(presabs)), las=3,
-     cex.axis=0.3)
-axis(side = 2, labels=colnames(presabs),
-     at=seq(0, by=1/(ncol(presabs)-1), length.out=ncol(presabs)), las=2,
-     cex.axis=0.3)
-dev.off()
-
-#taxa_assignment <- assignTaxonomy(seqtab.nochim, "/vlsci/VR0267/pgriffin/hsm/mel_metabarcoding_run1/ref_db/dada2_fixed_uppercase_nolong.fasta.gz", 
-#                       multithread=TRUE, taxLevels = c("Kingdom", "Phylum", "Class",
-#                                                       "Order", "Family", "Genus", "Species", "ID"))
-
-#taxa <- taxa_assignment["taxa"]
-#bootstraps <- taxa_assignment["boot"]
-
-#write.csv(unname(taxa), file="/vlsci/VR0267/pgriffin/hsm/mel_metabarcoding_run1/results/taxa_table_A_E.csv")
-#saveRDS(taxa, "/vlsci/VR0267/pgriffin/hsm/mel_metabarcoding_run1/results/A_E_taxa.rds")
-
-#write.csv(bootstraps, file="/vlsci/VR0267/pgriffin/hsm/mel_metabarcoding_run1/results/bootstrap_table_A_E.csv")
-#saveRDS(bootstraps, "/vlsci/VR0267/pgriffin/hsm/mel_metabarcoding_run1/results/A_E_bootstraps.rds")
-
-
-# seqtab <- readRDS("~/Documents/metabarcoding/test_run1_data/A_E_seqtab_nochim.rds")
-# 
-# presabs <- as.matrix((seqtab > 0) + 0)
-# rowSums(presabs)
-# 
-# image(presabs, col=c("white", "red"), xaxt = "n", yaxt="n")
-# axis(side = 1, labels = rownames(presabs),
-#      at = seq(0, by = 1/(nrow(presabs)-1), length.out = nrow(presabs)), las=3,
-#      cex.axis=0.3)
-# 
-# 
-# temptab <- seqtab
-# colnames(temptab) <- rep("", ncol(temptab))
-# tempdf <- as.data.frame(temptab[12:13,1:200])
-
-
+for(pp in 1:length(adapter_pairs)){
+  primer_pair <- adapter_pairs[pp] 
+  
+  output_file <- paste(results_path, "/", primer_pair, "_blast_classification.txt", sep="")
+  input_file <- paste(results_path, "/", primer_pair, "_seqtab_nochim.rds", sep="")
+  input_tab <- readRDS(input_file)
+  classification_summary_path <- paste(results_path, "/", primer_pair, "_blast_summary.csv", sep="")
+  lowest_unique_classification_path <- paste(results_path, "/", primer_pair, "_lowest_unique_classification.csv", sep="")
+  classification_collated_by_species_path <- paste(results_path, "/", primer_pair, "_classification_collated_by_species.csv", sep="")
+  classification_collated_by_species_plot_path <- paste(results_path, "/", primer_pair, "_classification_collated_by_species_presabs.pdf", sep="")
+  
+  #############################
+  # BLAST classification step #
+  #############################
+  
+  
+  if(file.exists(output_file)){
+    classif <- read.csv(output_file, sep="\t", header=FALSE, stringsAsFactors = FALSE)
+  } else{
+    message(paste("BLAST classification in progress for", input_file))
+    blastClassify(sequence=colnames(input_tab), bdb=ref_blastdb, bdb_path=ref_db_path, output_file=output_file)
+    classif <- read.csv(output_file, sep="\t", header=FALSE, stringsAsFactors = FALSE)
+  }
+  
+  #################################
+  # Extract some info from        #
+  # the BLAST classification file #
+  #################################
+  
+  classif$seqnumber <- as.numeric(unlist(lapply(strsplit(classif[,1], split="_"), "[[", 2)))
+  
+  if(!file.exists(classification_summary_path)){
+    message(paste("Summarising BLAST classification results for", input_file))
+    classification_summary <- data.frame(query_seq_number=numeric(), top_pident=numeric(), lowest_unique_match=character(), matching_taxa=character(),
+                                         stringsAsFactors=FALSE)
+    for(i in 1:max(classif$seqnumber)){
+      classif_subset <- classif[classif$seqnumber==i,]
+      if(nrow(classif_subset)==0){
+        classification_summary[i,] <- c(query_seq_number=i, top_pident=0, lowest_unique_match="unidentified", matching_taxa="unidentified")
+      } else{
+        top_hits <- extract_top_pident_hits(classif_subset)
+        message(paste(nrow(top_hits), "hits with identity score of", top_hits[1,3], "for sequence #", i))
+        top_taxa <- condense_taxa(top_hits[,2])
+        classification_summary[i,] <- c(query_seq_number=i, top_pident=top_hits[1,3], 
+                                        lowest_unique_match=top_taxa[1], matching_taxa=top_taxa[2])
+      }
+    }
+    classification_summary$sequence <- colnames(input_tab)
+    write.csv(classification_summary, file=classification_summary_path, row.names = FALSE, quote=FALSE)
+  } else{
+    classification_summary <- read.csv(classification_summary_path, stringsAsFactors=FALSE)
+  }
+  
+  ###################################
+  # Create and output table of      #
+  # sequence abundance at           #
+  # lowest unique taxon assignment, #
+  # or import if already exists     #
+  ###################################
+  
+  if(!file.exists(lowest_unique_classification_path)){
+    message(paste("Collating BLAST classification to lowest unique taxon for", input_file))
+    seqtab_assigned <- input_tab
+    colnames(seqtab_assigned) <- classification_summary$lowest_unique_match
+    seqtab_assigned <- seqtab_assigned[,order(classification_summary$lowest_unique_match)]
+    pident_sorted <- classification_summary[order(classification_summary$lowest_unique_match), "top_pident"]
+    seq_sorted <- colnames(input_tab)[order(classification_summary$lowest_unique_match)]
+    matching_taxa_sorted <- classification_summary[order(classification_summary$lowest_unique_match), "matching_taxa"]
+    
+    seqtab_out <- rbind(seqtab_assigned, pident_sorted, seq_sorted, matching_taxa_sorted)
+    row.names(seqtab_out)[((nrow(seqtab_out)-2):nrow(seqtab_out))] <- c("top_pident", "sequence", "all_top_match_taxa")
+    
+    write.csv(seqtab_out, file=lowest_unique_classification_path, 
+              quote=FALSE)
+  } else{
+    seqtab_out <- read.csv(lowest_unique_classification_path, stringsAsFactors = FALSE,
+                           header=TRUE)
+  }
+  
+  #############################
+  # Collate at species level  #
+  # (this ignores the percent #
+  # identity values though)   #
+  #############################
+  
+  message(paste("Collating at species level for", input_file))
+  
+  matches_above_97.5 <- as.numeric(classification_summary$top_pident)>97.499
+  matches_below_97.5 <- as.numeric(classification_summary$top_pident)<=97.499
+  
+  seqtab_assigned <- input_tab
+  colnames(seqtab_assigned) <- classification_summary$lowest_unique_match
+  seqtab_assigned <- seqtab_assigned[,order(classification_summary$lowest_unique_match)]
+  
+  species_collated <- collate_at_species_level(info_per_seq=classification_summary, seqtab_assigned=seqtab_assigned)
+  
+  species_collated <- species_collated[,order(colnames(species_collated))]
+  write.csv(species_collated, file=classification_collated_by_species_path, quote=FALSE)
+  
+  presabs <- as.matrix((species_collated > 0) + 0)
+  rowSums(presabs)
+  
+  pdf(classification_collated_by_species_plot_path, width=7, height=14)
+  image(presabs, col=c("white", "red"), xaxt = "n", yaxt="n")
+  axis(side = 1, labels = rownames(presabs),
+       at = seq(0, by = 1/(nrow(presabs)-1), length.out = nrow(presabs)), las=3,
+       cex.axis=0.15)
+  axis(side = 2, labels=colnames(presabs),
+       at=seq(0, by=1/(ncol(presabs)-1), length.out=ncol(presabs)), las=2,
+       cex.axis=0.15)
+  dev.off()
+}

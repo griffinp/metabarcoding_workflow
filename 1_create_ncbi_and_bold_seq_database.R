@@ -39,8 +39,8 @@ for(taxon in taxon_list2){
   }
 }
 
-for(taxon in taxon_list2){
-  output_dir <- "~/Documents/Research_Projects/metabarcoding/metaR/ref_files/taxon_list2"
+for(taxon in taxon_list1){
+  output_dir <- "~/Documents/Research_Projects/metabarcoding/metaR/ref_files/taxon_list1"
   raw_fasta_file_name <- make_raw_fasta_name(taxon=taxon, directory=output_dir, suffix="_COI.fasta")
   dada2_fasta_file_name <- make_dada2_fasta_name(taxon=taxon, directory=output_dir)
   if(file.exists(raw_fasta_file_name) & file.exists(dada2_fasta_file_name)==FALSE){
@@ -57,10 +57,10 @@ for(taxon in taxon_list2){
 # Trying BOLD #
 ###############
 
-output_dir <- "~/Documents/Research_Projects/metabarcoding/metaR/ref_files/taxon_list2"
+output_dir <- "~/Documents/Research_Projects/metabarcoding/metaR/ref_files/taxon_list1"
 
-for(i in 1:length(taxon_list2)){
-  taxon <- taxon_list2[i]
+for(i in 1:length(taxon_list1)){
+  taxon <- taxon_list1[i]
   marker <- "COI-5P|COI-3P"
   mapping_file_name <- make_mapping_name(taxon=taxon, directory=output_dir)
   dada2_file_name <- paste(output_dir, "/", taxon, "_extra_bold_seq_dada2.fasta", sep="")
